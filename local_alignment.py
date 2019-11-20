@@ -1,4 +1,4 @@
-#Scoring matrix for protein
+#Scoring matrix
 BLOSUM62 = {
 			'A': {'A': 4,'R': -1,'N': -2,'D': -2,'C': 0,'Q': -1,'E': -1,'G': 0,'H': -2,'I': -1,'L': -1,'K': -1,'M': -1,'F': -2,'P': -1,'S': 1,'T': 0,'W': -3,'Y': -2,'V': 0,'B': -2,'Z': -1,'X': 0},
 			'R': {'A': -1,'R': 5,'N': 0,'D': -2,'C': -3,'Q': 1,'E': 0,'G': -2,'H': 0,'I': -3,'L': -2,'K': 2,'M': -1,'F': -3,'P': -2,'S': -1,'T': -1,'W': -3,'Y': -2,'V': -3,'B': -1,'Z': 0,'X': -1},
@@ -25,18 +25,6 @@ BLOSUM62 = {
 			'X': {'A': 0,'R': -1,'N': -1,'D': -1,'C': -2,'Q': -1,'E': -1,'G': -1,'H': -1,'I': -1,'L': -1,'K': -1,'M': -1,'F': -1,'P': -2,'S': 0,'T': 0,'W': -2,'Y': -1,'V': -1,'B': -1,'Z': -1,'X': -1},
 			}
 
-
-#Scoring matrix for DNA
-match = +2
-mismatch = -3
-dna_gap = -4
-DNA_MATRIX = {
-			'A': {'A': match, 'T': mismatch, 'C':mismatch , 'G': mismatch},
-			'T': {'A': mismatch, 'T': match, 'C': mismatch, 'G': mismatch},
-			'C': {'A': mismatch, 'T': mismatch , 'C': match, 'G': mismatch },
-			'G': {'A': mismatch , 'T': mismatch, 'C': mismatch , 'G': match},
-
-			}
 #Sequence matrix seq1:columns and seq2:rows
 def create_identity_matrix(seq1,seq2, gap):
 	'''
@@ -49,15 +37,6 @@ def create_identity_matrix(seq1,seq2, gap):
 	#Initialize to zero
 	identity_matrix = [[0 for i in range(len(seq1)+1)] for j in range(len(seq2)+1)]
 
-	#Add each initial gap penalty
-	for i in range(len(seq2)+1):
-		for j in range(len(seq1)+1):
-
-			if i == 0:
-				identity_matrix[i][j] = j*gap
-			
-			elif j == 0:
-				identity_matrix[i][j] = i*gap	
 	return identity_matrix
 
 def create_traceback_matrix(seq1, seq2):
@@ -67,16 +46,6 @@ def create_traceback_matrix(seq1, seq2):
 	#Initialize to zero
 	traceback_matrix = [[0 for i in range(len(seq1)+1)] for j in range(len(seq2)+1)]
 
-	#Add each initial gap route
-	for i in range(len(seq2)+1):
-		for j in range(len(seq1)+1):
-
-			if i == 0:
-				traceback_matrix[i][j] = 2
-			
-			elif j == 0:
-				traceback_matrix[i][j] = 1
-	print(traceback_matrix)
 	return traceback_matrix
 
 def fill_matrix(seq1, seq2, identity_matrix, scoring_matrix, gap):
@@ -121,12 +90,31 @@ def max_score(i, j,seq1, seq2, identity_matrix, scoring_matrix, gap):
 	def sort_first(val):
 		return val[0]
 
-	scores = [seq1_gap, seq2_gap, no_gap]
+	scores = [seq1_gap, seq2_gap, no_gap, (0,-1)]
 	#Sort the three scores
 	scores.sort(key = sort_first)
 	#Return the highest score with its identifier
 
 	return scores[-1]
+
+def find_max_value(identity_matrix):
+	'''
+	This function finds the maximum value of a matrix 
+	and returns its value and position
+	'''
+			   #score, i, j
+	max_score = (-1, -1, -1)
+	#Get the length of both sequences
+	len_seq1 = len(identity_matrix[0])
+	len_seq2 = len(identity_matrix)
+
+	for i in range(1, len_seq2):	
+		for j in range(1, len_seq1):
+			if identity_matrix[i][j] >= max_score[0]:
+				max_score = (identity_matrix[i][j], i, j)
+
+	return max_score
+
 
 
 def traceback_sequences(seq1,seq2,identity_matrix, traceback_matrix):
@@ -135,15 +123,14 @@ def traceback_sequences(seq1,seq2,identity_matrix, traceback_matrix):
 	that led to the optimal sequence in the identity matrix.
 	'''
 	#The starting indices of the matrix (bottom right)
-	j = len(identity_matrix[0]) - 1
-	i = len(identity_matrix) - 1
+	max_score, i, j = find_max_value(identity_matrix)
 
 	#The initially empty aligned sequences
 	aligned_seq1 = ''
 	aligned_seq2 = ''
 
 	#Repeat until the algorithm reaches the position (0,0)
-	while ((i != 0) or (j != 0)):
+	while (identity_matrix[i][j] != 0):
 
 		#The case when a match/mismatch is optimal
 		if traceback_matrix[i][j] == 0:
@@ -168,7 +155,7 @@ def traceback_sequences(seq1,seq2,identity_matrix, traceback_matrix):
 	return (aligned_seq1[::-1], aligned_seq2[::-1])
 
 
-def global_alignment(sequence1, sequence2):
+def local_alignment(sequence1, sequence2):
 	'''
 	This function performs a global alignment on sequence1 and sequence2 
 	using the Needleman and Wunsch algorithm
@@ -177,7 +164,7 @@ def global_alignment(sequence1, sequence2):
 	gap = -4
 
 	identity_matrix = create_identity_matrix(sequence1,sequence2, gap)
-	complete_matrix, filled_traceback_matrix = fill_matrix(sequence1, sequence2, identity_matrix, DNA_MATRIX, gap)
+	complete_matrix, filled_traceback_matrix = fill_matrix(sequence1, sequence2, identity_matrix, BLOSUM62, gap)
 	aligned_seq1, aligned_seq2 = traceback_sequences(sequence1, sequence2, complete_matrix, filled_traceback_matrix)
 
 	return (aligned_seq1, aligned_seq2)
@@ -186,7 +173,7 @@ def global_alignment(sequence1, sequence2):
 def main():
 	seq1 = input('Enter sequence 1: ')
 	seq2 = input('Enter sequence 2: ')
-	a_seq1, a_seq2 = global_alignment(seq1, seq2)
+	a_seq1, a_seq2 = local_alignment(seq1, seq2)
 	print('The aligned sequences are:')
 	print(a_seq1)
 	print(a_seq2)
